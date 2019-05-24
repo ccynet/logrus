@@ -204,7 +204,6 @@ func (entry Entry) HasCaller() (has bool) {
 // This function is not declared with a pointer value because otherwise
 // race conditions will occur when using multiple goroutines
 func (entry Entry) log(level Level, msg string) {
-	var buffer *bytes.Buffer
 
 	// Default to now, but allow users to override if they want.
 	//
@@ -221,22 +220,27 @@ func (entry Entry) log(level Level, msg string) {
 		entry.Caller = getCaller()
 	}
 
-	entry.fireHooks()
+	if entry.Logger.IsHookLevelEnabled(level) {
+		entry.fireHooks()
+	}
 
-	buffer = bufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	defer bufferPool.Put(buffer)
-	entry.Buffer = buffer
+	if entry.Logger.IsLevelEnabled(level) {
+		var buffer *bytes.Buffer
+		buffer = bufferPool.Get().(*bytes.Buffer)
+		buffer.Reset()
+		defer bufferPool.Put(buffer)
+		entry.Buffer = buffer
 
-	entry.write()
+		entry.write()
 
-	entry.Buffer = nil
+		entry.Buffer = nil
 
-	// To avoid Entry#log() returning a value that only would make sense for
-	// panic() to use in Entry#Panic(), we avoid the allocation by checking
-	// directly here.
-	if level <= PanicLevel {
-		panic(&entry)
+		// To avoid Entry#log() returning a value that only would make sense for
+		// panic() to use in Entry#Panic(), we avoid the allocation by checking
+		// directly here.
+		if level <= PanicLevel {
+			panic(&entry)
+		}
 	}
 }
 
@@ -264,7 +268,7 @@ func (entry *Entry) write() {
 }
 
 func (entry *Entry) Log(level Level, args ...interface{}) {
-	if entry.Logger.IsLevelEnabled(level) {
+	if entry.Logger.IsLevelEnabled(level) || entry.Logger.IsHookLevelEnabled(level) {
 		entry.log(level, fmt.Sprint(args...))
 	}
 }
@@ -355,7 +359,7 @@ func (entry *Entry) Panicf(format string, args ...interface{}) {
 // Entry Println family functions
 
 func (entry *Entry) Logln(level Level, args ...interface{}) {
-	if entry.Logger.IsLevelEnabled(level) {
+	if entry.Logger.IsLevelEnabled(level) || entry.Logger.IsHookLevelEnabled(level) {
 		entry.Log(level, entry.sprintlnn(args...))
 	}
 }

@@ -36,14 +36,26 @@ func SetLevel(level Level) {
 	std.SetLevel(level)
 }
 
+func SetHookLevel(level Level)  {
+	std.SetHookLevel(level)
+}
+
 // GetLevel returns the standard logger level.
 func GetLevel() Level {
 	return std.GetLevel()
 }
 
+func GetHookLevel() Level {
+	return std.GetHookLevel()
+}
+
 // IsLevelEnabled checks if the log level of the standard logger is greater than the level param
 func IsLevelEnabled(level Level) bool {
 	return std.IsLevelEnabled(level)
+}
+
+func IsHookLevelEnabled(level Level) bool {
+	return std.IsHookLevelEnabled(level)
 }
 
 // AddHook adds a hook to the standard logger hooks.

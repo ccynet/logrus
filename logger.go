@@ -33,6 +33,8 @@ type Logger struct {
 	// to) `logrus.Info`, which allows Info(), Warn(), Error() and Fatal() to be
 	// logged.
 	Level Level
+	// hook level
+	HookLevel Level
 	// Used to sync writing to the log. Locking is enabled by Default
 	mu MutexWrap
 	// Reusable empty entry
@@ -82,6 +84,7 @@ func New() *Logger {
 		Formatter:    new(TextFormatter),
 		Hooks:        make(LevelHooks),
 		Level:        InfoLevel,
+		HookLevel:    PanicLevel,
 		ExitFunc:     os.Exit,
 		ReportCaller: false,
 	}
@@ -140,7 +143,7 @@ func (logger *Logger) WithTime(t time.Time) *Entry {
 }
 
 func (logger *Logger) Logf(level Level, format string, args ...interface{}) {
-	if logger.IsLevelEnabled(level) {
+	if logger.IsLevelEnabled(level) || logger.IsHookLevelEnabled(level) {
 		entry := logger.newEntry()
 		entry.Logf(level, format, args...)
 		logger.releaseEntry(entry)
@@ -187,7 +190,7 @@ func (logger *Logger) Panicf(format string, args ...interface{}) {
 }
 
 func (logger *Logger) Log(level Level, args ...interface{}) {
-	if logger.IsLevelEnabled(level) {
+	if logger.IsLevelEnabled(level) || logger.IsHookLevelEnabled(level) {
 		entry := logger.newEntry()
 		entry.Log(level, args...)
 		logger.releaseEntry(entry)
@@ -234,7 +237,7 @@ func (logger *Logger) Panic(args ...interface{}) {
 }
 
 func (logger *Logger) Logln(level Level, args ...interface{}) {
-	if logger.IsLevelEnabled(level) {
+	if logger.IsLevelEnabled(level) || logger.IsHookLevelEnabled(level) {
 		entry := logger.newEntry()
 		entry.Logln(level, args...)
 		logger.releaseEntry(entry)
@@ -299,14 +302,26 @@ func (logger *Logger) level() Level {
 	return Level(atomic.LoadUint32((*uint32)(&logger.Level)))
 }
 
+func (logger *Logger) hookLevel() Level {
+	return Level(atomic.LoadUint32((*uint32)(&logger.HookLevel)))
+}
+
 // SetLevel sets the logger level.
 func (logger *Logger) SetLevel(level Level) {
 	atomic.StoreUint32((*uint32)(&logger.Level), uint32(level))
 }
 
+func (logger *Logger) SetHookLevel(hookLevel Level) {
+	atomic.StoreUint32((*uint32)(&logger.HookLevel), uint32(hookLevel))
+}
+
 // GetLevel returns the logger level.
 func (logger *Logger) GetLevel() Level {
 	return logger.level()
+}
+
+func (logger *Logger) GetHookLevel() Level {
+	return logger.hookLevel()
 }
 
 // AddHook adds a hook to the logger hooks.
@@ -319,6 +334,10 @@ func (logger *Logger) AddHook(hook Hook) {
 // IsLevelEnabled checks if the log level of the logger is greater than the level param
 func (logger *Logger) IsLevelEnabled(level Level) bool {
 	return logger.level() >= level
+}
+
+func (logger *Logger) IsHookLevelEnabled(level Level) bool {
+	return logger.hookLevel() >= level
 }
 
 // SetFormatter sets the logger formatter.
